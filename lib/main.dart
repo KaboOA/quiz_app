@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:quiz_app/cubit/quiz_cubit.dart';
 import 'package:quiz_app/firebase_options.dart';
 
 import 'start_screen.dart';
@@ -17,10 +19,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const StartScreen(),
-      theme: ThemeData(useMaterial3: true),
+    return BlocProvider(
+      create: (context) => QuizCubit()..getQuestions(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: const StartScreen(),
+        theme: ThemeData(useMaterial3: true),
+      ),
     );
   }
 }
