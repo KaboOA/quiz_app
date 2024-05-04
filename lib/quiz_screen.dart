@@ -1,25 +1,19 @@
 // ignore_for_file: must_be_immutable
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:quiz_app/cubit/quiz_cubit.dart';
 import 'package:quiz_app/cubit/quiz_states.dart';
 import 'package:quiz_app/quiz_question_model.dart';
 import 'package:slide_countdown/slide_countdown.dart';
 
-class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key});
-  @override
-  State<QuizScreen> createState() => _QuizScreenState();
-}
+class QuizScreen extends StatelessWidget {
+  QuizScreen({super.key});
 
-class _QuizScreenState extends State<QuizScreen> {
-  bool isLast = false;
   var pageController = PageController();
   Color color = const Color(0xff335ef7);
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<QuizCubit, QuizState>(
@@ -38,10 +32,18 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) => OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 750),
+                            curve: Curves.fastEaseInToSlowEaseOut,
+                          );
+                        },
                         style: ButtonStyle(
                           backgroundColor: MaterialStateProperty.all(
-                              index % 2 == 0 ? color : Colors.grey[200]),
+                              cubit.stdQuizAnsws!.elementAtOrNull(index) != null
+                                  ? color
+                                  : Colors.grey[200]),
                           shape: MaterialStateProperty.all(
                             RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8.0),
@@ -51,7 +53,10 @@ class _QuizScreenState extends State<QuizScreen> {
                         child: Text(
                           '${index + 1}',
                           style: TextStyle(
-                            color: index % 2 == 0 ? Colors.white : Colors.black,
+                            color: cubit.stdQuizAnsws!.elementAtOrNull(index) !=
+                                    null
+                                ? Colors.white
+                                : Colors.black,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -62,14 +67,17 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                   ),
                 ),
-                const Row(
+                Row(
                   children: [
-                    Spacer(),
+                    const Spacer(),
                     Padding(
-                      padding: EdgeInsetsDirectional.only(end: 16.0),
+                      padding: const EdgeInsetsDirectional.only(end: 16.0),
                       child: SlideCountdown(
-                        duration: Duration(hours: 1),
-                        icon: Padding(
+                        duration: const Duration(seconds: 5),
+                        onDone: () {
+                          print(cubit.getResult());
+                        },
+                        icon: const Padding(
                           padding: EdgeInsets.only(right: 5),
                           child: Icon(
                             Icons.alarm,
@@ -81,61 +89,90 @@ class _QuizScreenState extends State<QuizScreen> {
                     )
                   ],
                 ),
+                const SizedBox(height: 8.0),
                 Expanded(
                   child: PageView.builder(
+                    itemCount: cubit.quizQuestions.length,
                     physics: const BouncingScrollPhysics(),
                     onPageChanged: (value) {
-                      if (value == cubit.quizQuestions.length - 1) {
-                        isLast = true;
-                        setState(() {});
-                      } else {
-                        isLast = false;
-                        setState(() {});
-                      }
+                      cubit.changeIsState(
+                          value == cubit.quizQuestions.length - 1);
+                      cubit.changeIsStart(value == 0);
                     },
                     controller: pageController,
                     itemBuilder: (context, index) => BuildQuizItem(
+                      cubit: cubit,
                       questionModel: cubit.quizQuestions[index],
-                      index: index,
+                      queIdx: index,
                       length: cubit.quizQuestions.length,
                     ),
-                    itemCount: cubit.quizQuestions.length,
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsetsDirectional.only(
+                    start: 16.0,
+                    end: 16.0,
+                    bottom: 8.0,
+                    top: 8.0,
+                  ),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: MaterialButton(
-                          onPressed: () {
-                            pageController.previousPage(
-                              duration: const Duration(milliseconds: 750),
-                              curve: Curves.fastEaseInToSlowEaseOut,
-                            );
-                          },
-                          color: Colors.grey[200],
-                          child: const Text(
-                            'Back',
-                            style: TextStyle(color: Colors.black),
+                      if (!cubit.isStart)
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              pageController.previousPage(
+                                duration: const Duration(milliseconds: 750),
+                                curve: Curves.fastEaseInToSlowEaseOut,
+                              );
+                            },
+                            style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all(color),
+                              shape: MaterialStateProperty.all(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8.0),
+                      if (!cubit.isStart) const SizedBox(width: 6.0),
                       Expanded(
-                        child: MaterialButton(
+                        flex: 4,
+                        child: OutlinedButton(
                           onPressed: () {
-                            if (!isLast) {
+                            if (cubit.isLast) {
+                              // if want to get result and ignore unsolved questions.   => print(cubit.getResult());
+
+                              if (cubit.stdQuizAnsws!.contains(null)) {
+                                print(
+                                    'question ${cubit.stdQuizAnsws!.indexOf(null) + 1} not answered');
+                              } else {
+                                print('complete!');
+                                print(cubit.getResult());
+                              }
+                            } else {
                               pageController.nextPage(
                                 duration: const Duration(milliseconds: 750),
                                 curve: Curves.fastEaseInToSlowEaseOut,
                               );
                             }
                           },
-                          color: color,
-                          child: const Text(
-                            'Next',
-                            style: TextStyle(color: Colors.white),
+                          style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(color),
+                            shape: MaterialStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            cubit.isLast ? 'Complete' : 'Next',
+                            style: const TextStyle(color: Colors.white),
                           ),
                         ),
                       ),
@@ -151,138 +188,132 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 }
 
-class BuildQuizItem extends StatefulWidget {
+class BuildQuizItem extends StatelessWidget {
   BuildQuizItem({
     super.key,
     required this.questionModel,
-    required this.index,
+    required this.queIdx,
     required this.length,
+    required this.cubit,
   });
   QuizQuestionModel questionModel;
   int length;
-  int index;
-
-  @override
-  State<BuildQuizItem> createState() => _BuildQuizItemState();
-}
-
-class _BuildQuizItemState extends State<BuildQuizItem> {
+  int queIdx;
   Color color = const Color(0xff335ef7);
-  int? selectedOption;
+  QuizCubit cubit;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12.0,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 3.5,
-                  height: MediaQuery.of(context).size.height / 10,
-                  decoration: BoxDecoration(
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 8.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${widget.index + 1} of ${widget.length} Questions',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16.0,
-                        ),
-                      ),
-                      Text(
-                        widget.questionModel.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8.0),
-            widget.questionModel.imgUrl != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8.0),
-                    child: CachedNetworkImage(
-                      imageUrl: widget.questionModel.imgUrl!,
-                      height: MediaQuery.of(context).size.height / 4,
-                      fit: BoxFit.fill,
-                      width: double.infinity,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      errorWidget: (context, url, error) =>
-                          const Icon(Icons.error),
-                    ),
-                  )
-                : const SizedBox(),
-            const SizedBox(
-              height: 12.0,
-            ),
-            Card(
-              elevation: 4.0,
-              child: Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: ListView.separated(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemBuilder: (context, index) => Container(
+    return BlocBuilder<QuizCubit, QuizState>(
+      builder: (context, state) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12.0,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 3.5,
+                    height: MediaQuery.of(context).size.height / 10,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8.0),
-                      color: Colors.grey[200],
-                    ),
-                    child: ListTile(
-                      onTap: () {
-                        setState(() {
-                          selectedOption = index + 1;
-                        });
-                      },
-                      contentPadding: const EdgeInsets.all(8.0),
-                      title: Text(
-                        widget.questionModel.options[index],
-                        style: const TextStyle(
-                          fontSize: 14.0,
-                        ),
-                      ),
-                      trailing: Radio<int>(
-                        value: index + 1,
-                        activeColor: color,
-                        groupValue: selectedOption,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedOption = index + 1;
-                          });
-                        },
-                      ),
+                      color: color,
                     ),
                   ),
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12.0),
-                  itemCount: widget.questionModel.options.length,
+                  const SizedBox(width: 8.0),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${queIdx + 1} of ${cubit.quizQuestions.length} Questions',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16.0,
+                          ),
+                        ),
+                        Text(
+                          questionModel.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8.0),
+              questionModel.imgUrl != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: CachedNetworkImage(
+                        imageUrl: questionModel.imgUrl!,
+                        height: MediaQuery.of(context).size.height / 4,
+                        fit: BoxFit.fill,
+                        width: double.infinity,
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.error),
+                      ),
+                    )
+                  : const SizedBox(),
+              const SizedBox(
+                height: 12.0,
+              ),
+              Card(
+                elevation: 4.0,
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: ListView.separated(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemBuilder: (context, ansIdx) => Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8.0),
+                        color: Colors.grey[200],
+                      ),
+                      child: ListTile(
+                        onTap: () {
+                          cubit.selectAnswer(queIdx, ansIdx + 1);
+                        },
+                        contentPadding: const EdgeInsets.all(8.0),
+                        title: Text(
+                          questionModel.options[ansIdx],
+                          style: const TextStyle(
+                            fontSize: 14.0,
+                          ),
+                        ),
+                        trailing: Radio<int>(
+                          value: ansIdx + 1,
+                          activeColor: color,
+                          groupValue:
+                              cubit.stdQuizAnsws!.elementAtOrNull(queIdx),
+                          onChanged: (value) {
+                            cubit.selectAnswer(queIdx, value!);
+                          },
+                        ),
+                      ),
+                    ),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12.0),
+                    itemCount: questionModel.options.length,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
